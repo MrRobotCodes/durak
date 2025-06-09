@@ -1,6 +1,6 @@
 # Durak Research Data Collection App
 
-This app is a lightweight research data collection system. It uses Node.js/Express with a SQLite database and a small HTML/JS frontend served from the `public` folder. Researchers can register, log in, build custom forms and submit data to those forms. Authentication uses JSON Web Tokens stored in `localStorage`.
+This app is a lightweight research data collection system. It uses Node.js/Express with a SQLite database and a small HTML/JS frontend served from the `public` folder. The UI is styled with [Bootstrap](https://getbootstrap.com/) for a simple dashboard-like appearance. Researchers can register, log in, build custom forms and submit data to those forms. Authentication uses JSON Web Tokens stored in `localStorage`.
 
 ## Getting Started
 

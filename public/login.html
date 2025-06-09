@@ -4,24 +4,39 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login</title>
-  <style>
-    body { font-family: sans-serif; margin: 2em; }
-    label { display: block; margin-top: .5em; }
-  </style>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-  <h1>Login</h1>
-  <form id="loginForm">
-    <label>Username: <input type="text" id="username" required></label>
-    <label>Password: <input type="password" id="password" required></label>
-    <button type="submit">Login</button>
-  </form>
-  <h2>Register</h2>
-  <form id="registerForm">
-    <label>Username: <input type="text" id="regUser" required></label>
-    <label>Password: <input type="password" id="regPass" required></label>
-    <button type="submit">Register</button>
-  </form>
+<body class="bg-light">
+  <div class="container mt-5" style="max-width:400px;">
+    <h1 class="mb-3 text-center">Login</h1>
+    <form id="loginForm" class="mb-4">
+      <div class="mb-3">
+        <label class="form-label">Username
+          <input type="text" class="form-control" id="username" required>
+        </label>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password
+          <input type="password" class="form-control" id="password" required>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-primary w-100">Login</button>
+    </form>
+    <h2 class="mb-3 text-center">Register</h2>
+    <form id="registerForm">
+      <div class="mb-3">
+        <label class="form-label">Username
+          <input type="text" class="form-control" id="regUser" required>
+        </label>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Password
+          <input type="password" class="form-control" id="regPass" required>
+        </label>
+      </div>
+      <button type="submit" class="btn btn-secondary w-100">Register</button>
+    </form>
+  </div>
   <script>
     async function login(username, password) {
       const res = await fetch('/api/login', {
