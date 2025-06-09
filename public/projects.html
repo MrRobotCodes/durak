@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Projects</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    label { display:block; margin-top:.5em; }
+  </style>
+</head>
+<body>
+  <h1>Projects</h1>
+  <form id="projectForm">
+    <label>Project Name: <input type="text" id="projectName" required></label>
+    <button type="submit">Create Project</button>
+  </form>
+  <h2>Existing Projects</h2>
+  <ul id="projectList"></ul>
+  <script>
+    const token = localStorage.getItem('token');
+    if(!token) { window.location = '/login.html'; }
+    function authFetch(url, options={}) {
+      options.headers = Object.assign({}, options.headers, { 'Authorization':'Bearer '+token });
+      return fetch(url, options);
+    }
+
+    async function loadProjects() {
+      const res = await authFetch('/api/projects');
+      const projects = await res.json();
+      const list = document.getElementById('projectList');
+      list.innerHTML = '';
+      projects.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = `${p.id}: ${p.name}`;
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById('projectForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const name = document.getElementById('projectName').value;
+      await authFetch('/api/projects', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ name })
+      });
+      document.getElementById('projectName').value='';
+      loadProjects();
+    });
+
+    loadProjects();
+  </script>
+</body>
+</html>

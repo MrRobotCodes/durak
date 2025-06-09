@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Research Data Collector</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    form { margin-bottom: 1em; }
+    label { display: block; margin-top: .5em; }
+    table, th, td { border: 1px solid black; border-collapse: collapse; padding: .5em; }
+  </style>
+</head>
+<body>
+  <h1>Research Data Collector</h1>
+  <div>
+    <a href="/projects.html">Projects</a>
+    <a href="/forms.html" style="margin-left:1em;">Form Builder</a>
+    <a href="/login.html" id="logout" style="margin-left:1em;">Logout</a>
+  </div>
+  <form id="dataForm">
+    <label>
+      Researcher:
+      <input type="text" id="researcher" required>
+    </label>
+    <label>
+      Project:
+      <select id="projectSelect"></select>
+    </label>
+    <label>
+      Form:
+      <select id="formSelect"></select>
+    </label>
+    <div id="dynamicFields"></div>
+    <button type="submit">Submit</button>
+  </form>
+  <h2>Collected Data</h2>
+  <table id="dataTable">
+    <thead>
+      <tr><th>ID</th><th>Researcher</th><th>Data</th><th>Timestamp</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+    <script>
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location = '/login.html';
+      }
+      function authFetch(url, options = {}) {
+        options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
+        return fetch(url, options);
+      }
+
+      document.getElementById('logout').addEventListener('click', () => {
+        localStorage.removeItem('token');
+      });
+
+      let forms = [];
+
+    async function loadProjects() {
+        const res = await authFetch('/api/projects');
+        const projects = await res.json();
+        const select = document.getElementById('projectSelect');
+        select.innerHTML = '';
+        projects.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          select.appendChild(opt);
+        });
+        if (projects.length) {
+          select.value = projects[0].id;
+          loadForms();
+        }
+      }
+
+    async function loadForms() {
+        const projectId = document.getElementById('projectSelect').value;
+        if (!projectId) return;
+        const res = await authFetch(`/api/projects/${projectId}/forms`);
+      forms = await res.json();
+      const select = document.getElementById('formSelect');
+      select.innerHTML = '';
+      forms.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.name;
+        select.appendChild(opt);
+      });
+      if (forms.length) {
+        select.value = forms[0].id;
+        buildForm(forms[0]);
+        loadEntries(forms[0].id);
+      }
+    }
+
+    function buildForm(form) {
+      const container = document.getElementById('dynamicFields');
+      container.innerHTML = '';
+      form.fields.forEach(field => {
+        const label = document.createElement('label');
+        label.textContent = field.name + ':';
+        const input = document.createElement('input');
+        input.type = field.type || 'text';
+        input.name = field.name;
+        label.appendChild(input);
+        container.appendChild(label);
+      });
+    }
+
+    async function loadEntries(formId) {
+      const res = await authFetch(`/api/forms/${formId}/entries`);
+      const rows = await res.json();
+      const tbody = document.querySelector('#dataTable tbody');
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const dataObj = JSON.parse(r.data);
+        const dataStr = Object.entries(dataObj).map(([k,v]) => `${k}: ${v}`).join(', ');
+        tr.innerHTML = `<td>${r.id}</td><td>${r.researcher}</td><td>${dataStr}</td><td>${r.timestamp}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('formSelect').addEventListener('change', () => {
+      const id = document.getElementById('formSelect').value;
+      const form = forms.find(f => f.id == id);
+      buildForm(form);
+      loadEntries(id);
+    });
+
+    document.getElementById('dataForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formId = document.getElementById('formSelect').value;
+      const researcher = document.getElementById('researcher').value;
+      const inputs = document.querySelectorAll('#dynamicFields input');
+      const data = {};
+      inputs.forEach(inp => data[inp.name] = inp.value);
+      await authFetch(`/api/forms/${formId}/entries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ researcher, data })
+      });
+      inputs.forEach(inp => inp.value = '');
+      document.getElementById('researcher').value = '';
+      loadEntries(formId);
+    });
+    document.getElementById('projectSelect').addEventListener('change', loadForms);
+
+    loadProjects();
+  </script>
+</body>
+</html>
