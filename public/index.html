@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Research Data Collector</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-dark bg-dark navbar-expand-lg">
+    <div class="container">
+      <a class="navbar-brand" href="/">Research App</a>
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="/projects.html">Projects</a></li>
+        <li class="nav-item"><a class="nav-link" href="/forms.html">Form Builder</a></li>
+        <li class="nav-item"><a class="nav-link" href="/login.html" id="logout">Logout</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <div class="container mt-4">
+    <h1 class="mb-3">Research Data Collector</h1>
+    <form id="dataForm" class="mb-4">
+      <div class="mb-3">
+        <label class="form-label">Researcher
+          <input type="text" class="form-control" id="researcher" required>
+        </label>
+      </div>
+      <div class="row g-2 mb-3">
+        <div class="col-md-6">
+          <label class="form-label">Project
+            <select class="form-select" id="projectSelect"></select>
+          </label>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Form
+            <select class="form-select" id="formSelect"></select>
+          </label>
+        </div>
+      </div>
+      <div id="dynamicFields" class="mb-3"></div>
+      <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+
+    <h2>Collected Data</h2>
+    <table id="dataTable" class="table table-bordered table-striped">
+      <thead class="table-light">
+        <tr><th>ID</th><th>Researcher</th><th>Data</th><th>Timestamp</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+    <script>
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location = '/login.html';
+      }
+      function authFetch(url, options = {}) {
+        options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
+        return fetch(url, options);
+      }
+
+      document.getElementById('logout').addEventListener('click', () => {
+        localStorage.removeItem('token');
+      });
+
+      let forms = [];
+
+    async function loadProjects() {
+        const res = await authFetch('/api/projects');
+        const projects = await res.json();
+        const select = document.getElementById('projectSelect');
+        select.innerHTML = '';
+        projects.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          select.appendChild(opt);
+        });
+        if (projects.length) {
+          select.value = projects[0].id;
+          loadForms();
+        }
+      }
+
+    async function loadForms() {
+        const projectId = document.getElementById('projectSelect').value;
+        if (!projectId) return;
+        const res = await authFetch(`/api/projects/${projectId}/forms`);
+      forms = await res.json();
+      const select = document.getElementById('formSelect');
+      select.innerHTML = '';
+      forms.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.name;
+        select.appendChild(opt);
+      });
+      if (forms.length) {
+        select.value = forms[0].id;
+        buildForm(forms[0]);
+        loadEntries(forms[0].id);
+      }
+    }
+
+    function buildForm(form) {
+      const container = document.getElementById('dynamicFields');
+      container.innerHTML = '';
+      form.fields.forEach(field => {
+        const div = document.createElement('div');
+        div.className = 'mb-3';
+        const label = document.createElement('label');
+        label.className = 'form-label';
+        label.textContent = field.name;
+        const input = document.createElement('input');
+        input.className = 'form-control';
+        input.type = field.type || 'text';
+        input.name = field.name;
+        div.appendChild(label);
+        div.appendChild(input);
+        container.appendChild(div);
+      });
+    }
+
+    async function loadEntries(formId) {
+      const res = await authFetch(`/api/forms/${formId}/entries`);
+      const rows = await res.json();
+      const tbody = document.querySelector('#dataTable tbody');
+      tbody.innerHTML = '';
+      rows.forEach(r => {
+        const tr = document.createElement('tr');
+        const dataObj = JSON.parse(r.data);
+        const dataStr = Object.entries(dataObj).map(([k,v]) => `${k}: ${v}`).join(', ');
+        tr.innerHTML = `<td>${r.id}</td><td>${r.researcher}</td><td>${dataStr}</td><td>${r.timestamp}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('formSelect').addEventListener('change', () => {
+      const id = document.getElementById('formSelect').value;
+      const form = forms.find(f => f.id == id);
+      buildForm(form);
+      loadEntries(id);
+    });
+
+    document.getElementById('dataForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formId = document.getElementById('formSelect').value;
+      const researcher = document.getElementById('researcher').value;
+      const inputs = document.querySelectorAll('#dynamicFields input');
+      const data = {};
+      inputs.forEach(inp => data[inp.name] = inp.value);
+      await authFetch(`/api/forms/${formId}/entries`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ researcher, data })
+      });
+      inputs.forEach(inp => inp.value = '');
+      document.getElementById('researcher').value = '';
+      loadEntries(formId);
+    });
+    document.getElementById('projectSelect').addEventListener('change', loadForms);
+
+    loadProjects();
+  </script>
+</body>
+</html>
