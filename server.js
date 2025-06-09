@@ -21,10 +21,20 @@ const initEntries = `CREATE TABLE IF NOT EXISTS entries (
 )`;
 db.run(initEntries);
 
-const initForms = `CREATE TABLE IF NOT EXISTS forms (
+const initProjects = `CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    fields TEXT NOT NULL
+    owner_id INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`;
+db.run(initProjects);
+
+const initForms = `CREATE TABLE IF NOT EXISTS forms (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    fields TEXT NOT NULL,
+    FOREIGN KEY(project_id) REFERENCES projects(id)
 )`;
 db.run(initForms);
 
@@ -115,9 +125,35 @@ app.post('/api/data', authenticate, (req, res) => {
   stmt.finalize();
 });
 
+// ----- Project APIs -----
+app.get('/api/projects', authenticate, (req, res) => {
+  db.all('SELECT * FROM projects', [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
+app.post('/api/projects', authenticate, (req, res) => {
+  const { name } = req.body;
+  if (!name) {
+    return res.status(400).json({ error: 'name required' });
+  }
+  const stmt = db.prepare('INSERT INTO projects (name, owner_id) VALUES (?, ?)');
+  stmt.run(name, req.user.id, function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ id: this.lastID });
+  });
+  stmt.finalize();
+});
+
 // ----- Form APIs -----
-app.get('/api/forms', authenticate, (req, res) => {
-  db.all('SELECT * FROM forms', [], (err, rows) => {
+app.get('/api/projects/:projectId/forms', authenticate, (req, res) => {
+  const projectId = req.params.projectId;
+  db.all('SELECT * FROM forms WHERE project_id = ?', [projectId], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
@@ -126,13 +162,14 @@ app.get('/api/forms', authenticate, (req, res) => {
   });
 });
 
-app.post('/api/forms', authenticate, (req, res) => {
+app.post('/api/projects/:projectId/forms', authenticate, (req, res) => {
+  const projectId = req.params.projectId;
   const { name, fields } = req.body;
   if (!name || !Array.isArray(fields)) {
     return res.status(400).json({ error: 'name and fields are required' });
   }
-  const stmt = db.prepare('INSERT INTO forms (name, fields) VALUES (?, ?)');
-  stmt.run(name, JSON.stringify(fields), function(err) {
+  const stmt = db.prepare('INSERT INTO forms (project_id, name, fields) VALUES (?, ?, ?)');
+  stmt.run(projectId, name, JSON.stringify(fields), function(err) {
     if (err) {
       return res.status(500).json({ error: err.message });
     }

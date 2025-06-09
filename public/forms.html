@@ -12,10 +12,17 @@
 </head>
 <body>
   <h1>Form Builder</h1>
+  <div>
+    <a href="/projects.html">Projects</a>
+  </div>
   <form id="formBuilder">
     <label>
       Form Name:
       <input type="text" id="formName" required>
+    </label>
+    <label>
+      Project:
+      <select id="projectSelect"></select>
     </label>
     <label>
       Fields JSON:
@@ -33,17 +40,36 @@
         return fetch(url, options);
       }
 
+      async function loadProjects() {
+        const res = await authFetch('/api/projects');
+        const projects = await res.json();
+        const select = document.getElementById('projectSelect');
+        select.innerHTML = '';
+        projects.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          select.appendChild(opt);
+        });
+        if (projects.length) {
+          select.value = projects[0].id;
+          loadForms();
+        }
+      }
+
       async function loadForms() {
-        const res = await authFetch('/api/forms');
+        const projectId = document.getElementById('projectSelect').value;
+        if (!projectId) return;
+        const res = await authFetch(`/api/projects/${projectId}/forms`);
         const forms = await res.json();
-      const list = document.getElementById('formsList');
-      list.innerHTML = '';
-      forms.forEach(f => {
-        const li = document.createElement('li');
-        li.textContent = `${f.id}: ${f.name}`;
-        list.appendChild(li);
-      });
-    }
+        const list = document.getElementById('formsList');
+        list.innerHTML = '';
+        forms.forEach(f => {
+          const li = document.createElement('li');
+          li.textContent = `${f.id}: ${f.name}`;
+          list.appendChild(li);
+        });
+      }
 
     document.getElementById('formBuilder').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -55,7 +81,8 @@
         alert('Invalid JSON for fields');
         return;
       }
-        await authFetch('/api/forms', {
+        const projectId = document.getElementById('projectSelect').value;
+        await authFetch(`/api/projects/${projectId}/forms`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name, fields })
@@ -63,8 +90,9 @@
       document.getElementById('formName').value = '';
       loadForms();
     });
+    document.getElementById('projectSelect').addEventListener('change', loadForms);
 
-    loadForms();
+    loadProjects();
   </script>
 </body>
 </html>

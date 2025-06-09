@@ -14,13 +14,18 @@
 <body>
   <h1>Research Data Collector</h1>
   <div>
-    <a href="/forms.html">Form Builder</a>
+    <a href="/projects.html">Projects</a>
+    <a href="/forms.html" style="margin-left:1em;">Form Builder</a>
     <a href="/login.html" id="logout" style="margin-left:1em;">Logout</a>
   </div>
   <form id="dataForm">
     <label>
       Researcher:
       <input type="text" id="researcher" required>
+    </label>
+    <label>
+      Project:
+      <select id="projectSelect"></select>
     </label>
     <label>
       Form:
@@ -52,8 +57,27 @@
 
       let forms = [];
 
+    async function loadProjects() {
+        const res = await authFetch('/api/projects');
+        const projects = await res.json();
+        const select = document.getElementById('projectSelect');
+        select.innerHTML = '';
+        projects.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          select.appendChild(opt);
+        });
+        if (projects.length) {
+          select.value = projects[0].id;
+          loadForms();
+        }
+      }
+
     async function loadForms() {
-        const res = await authFetch('/api/forms');
+        const projectId = document.getElementById('projectSelect').value;
+        if (!projectId) return;
+        const res = await authFetch(`/api/projects/${projectId}/forms`);
       forms = await res.json();
       const select = document.getElementById('formSelect');
       select.innerHTML = '';
@@ -121,8 +145,9 @@
       document.getElementById('researcher').value = '';
       loadEntries(formId);
     });
+    document.getElementById('projectSelect').addEventListener('change', loadForms);
 
-    loadForms();
+    loadProjects();
   </script>
 </body>
 </html>
