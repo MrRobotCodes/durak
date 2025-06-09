@@ -1,6 +1,11 @@
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const path = require('path');
+
+const SECRET = process.env.JWT_SECRET || 'devsecret';
+
 const app = express();
 const db = new sqlite3.Database('data.db');
 
@@ -33,7 +38,60 @@ const initFormEntries = `CREATE TABLE IF NOT EXISTS form_entries (
 )`;
 db.run(initFormEntries);
 
-app.get('/api/data', (req, res) => {
+const initUsers = `CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL
+)`;
+db.run(initUsers);
+
+function authenticate(req, res, next) {
+  const header = req.headers['authorization'];
+  if (!header) return res.status(401).json({ error: 'Missing token' });
+  const token = header.split(' ')[1];
+  try {
+    req.user = jwt.verify(token, SECRET);
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+  const hash = await bcrypt.hash(password, 10);
+  const stmt = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)');
+  stmt.run(username, hash, function(err) {
+    if (err) {
+      return res.status(500).json({ error: 'User exists' });
+    }
+    res.json({ id: this.lastID });
+  });
+  stmt.finalize();
+});
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+  db.get('SELECT * FROM users WHERE username = ?', [username], async (err, row) => {
+    if (err || !row) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const match = await bcrypt.compare(password, row.password);
+    if (!match) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const token = jwt.sign({ id: row.id, username: row.username }, SECRET);
+    res.json({ token });
+  });
+});
+
+app.get('/api/data', authenticate, (req, res) => {
   db.all('SELECT * FROM entries ORDER BY timestamp DESC', [], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
@@ -42,7 +100,7 @@ app.get('/api/data', (req, res) => {
   });
 });
 
-app.post('/api/data', (req, res) => {
+app.post('/api/data', authenticate, (req, res) => {
   const { researcher, data } = req.body;
   if (!researcher || !data) {
     return res.status(400).json({ error: 'researcher and data are required' });
@@ -58,7 +116,7 @@ app.post('/api/data', (req, res) => {
 });
 
 // ----- Form APIs -----
-app.get('/api/forms', (req, res) => {
+app.get('/api/forms', authenticate, (req, res) => {
   db.all('SELECT * FROM forms', [], (err, rows) => {
     if (err) {
       return res.status(500).json({ error: err.message });
@@ -68,7 +126,7 @@ app.get('/api/forms', (req, res) => {
   });
 });
 
-app.post('/api/forms', (req, res) => {
+app.post('/api/forms', authenticate, (req, res) => {
   const { name, fields } = req.body;
   if (!name || !Array.isArray(fields)) {
     return res.status(400).json({ error: 'name and fields are required' });
@@ -83,7 +141,7 @@ app.post('/api/forms', (req, res) => {
   stmt.finalize();
 });
 
-app.get('/api/forms/:id/entries', (req, res) => {
+app.get('/api/forms/:id/entries', authenticate, (req, res) => {
   const formId = req.params.id;
   db.all('SELECT * FROM form_entries WHERE form_id = ? ORDER BY timestamp DESC', [formId], (err, rows) => {
     if (err) {
@@ -93,7 +151,7 @@ app.get('/api/forms/:id/entries', (req, res) => {
   });
 });
 
-app.post('/api/forms/:id/entries', (req, res) => {
+app.post('/api/forms/:id/entries', authenticate, (req, res) => {
   const formId = req.params.id;
   const { researcher, data } = req.body;
   if (!researcher || typeof data !== 'object') {

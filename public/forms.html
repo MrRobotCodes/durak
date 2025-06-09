@@ -25,10 +25,17 @@
   </form>
   <h2>Existing Forms</h2>
   <ul id="formsList"></ul>
-  <script>
-    async function loadForms() {
-      const res = await fetch('/api/forms');
-      const forms = await res.json();
+    <script>
+      const token = localStorage.getItem('token');
+      if (!token) { window.location = '/login.html'; }
+      function authFetch(url, options={}) {
+        options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
+        return fetch(url, options);
+      }
+
+      async function loadForms() {
+        const res = await authFetch('/api/forms');
+        const forms = await res.json();
       const list = document.getElementById('formsList');
       list.innerHTML = '';
       forms.forEach(f => {
@@ -48,11 +55,11 @@
         alert('Invalid JSON for fields');
         return;
       }
-      await fetch('/api/forms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, fields })
-      });
+        await authFetch('/api/forms', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, fields })
+        });
       document.getElementById('formName').value = '';
       loadForms();
     });
