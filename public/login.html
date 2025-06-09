@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    label { display: block; margin-top: .5em; }
+  </style>
+</head>
+<body>
+  <h1>Login</h1>
+  <form id="loginForm">
+    <label>Username: <input type="text" id="username" required></label>
+    <label>Password: <input type="password" id="password" required></label>
+    <button type="submit">Login</button>
+  </form>
+  <h2>Register</h2>
+  <form id="registerForm">
+    <label>Username: <input type="text" id="regUser" required></label>
+    <label>Password: <input type="password" id="regPass" required></label>
+    <button type="submit">Register</button>
+  </form>
+  <script>
+    async function login(username, password) {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem('token', data.token);
+        window.location = '/';
+      } else {
+        alert(data.error || 'Login failed');
+      }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const u = document.getElementById('username').value;
+      const p = document.getElementById('password').value;
+      login(u, p);
+    });
+
+    document.getElementById('registerForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const u = document.getElementById('regUser').value;
+      const p = document.getElementById('regPass').value;
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      if (res.ok) {
+        alert('Registered! Please log in.');
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Registration failed');
+      }
+    });
+  </script>
+</body>
+</html>

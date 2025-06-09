@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Form Builder</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    textarea { width: 100%; height: 10em; }
+    label { display: block; margin-top: .5em; }
+  </style>
+</head>
+<body>
+  <h1>Form Builder</h1>
+  <div>
+    <a href="/projects.html">Projects</a>
+  </div>
+  <form id="formBuilder">
+    <label>
+      Form Name:
+      <input type="text" id="formName" required>
+    </label>
+    <label>
+      Project:
+      <select id="projectSelect"></select>
+    </label>
+    <label>
+      Fields JSON:
+      <textarea id="fields" required>[{"name":"field1","type":"text"}]</textarea>
+    </label>
+    <button type="submit">Create Form</button>
+  </form>
+  <h2>Existing Forms</h2>
+  <ul id="formsList"></ul>
+    <script>
+      const token = localStorage.getItem('token');
+      if (!token) { window.location = '/login.html'; }
+      function authFetch(url, options={}) {
+        options.headers = Object.assign({}, options.headers, { 'Authorization': 'Bearer ' + token });
+        return fetch(url, options);
+      }
+
+      async function loadProjects() {
+        const res = await authFetch('/api/projects');
+        const projects = await res.json();
+        const select = document.getElementById('projectSelect');
+        select.innerHTML = '';
+        projects.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name;
+          select.appendChild(opt);
+        });
+        if (projects.length) {
+          select.value = projects[0].id;
+          loadForms();
+        }
+      }
+
+      async function loadForms() {
+        const projectId = document.getElementById('projectSelect').value;
+        if (!projectId) return;
+        const res = await authFetch(`/api/projects/${projectId}/forms`);
+        const forms = await res.json();
+        const list = document.getElementById('formsList');
+        list.innerHTML = '';
+        forms.forEach(f => {
+          const li = document.createElement('li');
+          li.textContent = `${f.id}: ${f.name}`;
+          list.appendChild(li);
+        });
+      }
+
+    document.getElementById('formBuilder').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('formName').value;
+      let fields;
+      try {
+        fields = JSON.parse(document.getElementById('fields').value);
+      } catch(err) {
+        alert('Invalid JSON for fields');
+        return;
+      }
+        const projectId = document.getElementById('projectSelect').value;
+        await authFetch(`/api/projects/${projectId}/forms`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, fields })
+        });
+      document.getElementById('formName').value = '';
+      loadForms();
+    });
+    document.getElementById('projectSelect').addEventListener('change', loadForms);
+
+    loadProjects();
+  </script>
+</body>
+</html>
